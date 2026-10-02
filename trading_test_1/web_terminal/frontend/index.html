@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silver Bot - Web Terminal</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161922; --border: #262b38; --text: #e6e8ee;
+    --muted: #8b93a7; --green: #2fbf71; --red: #e5484d; --amber: #e7a13a; --blue: #4a90e2;
+    --input-bg: #0d0f14;
+  }
+  body.light {
+    --bg: #f4f5f7; --panel: #ffffff; --border: #e2e4ea; --text: #1a1d24;
+    --muted: #6b7280; --input-bg: #f9fafb;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: var(--bg); color: var(--text); transition: background 0.2s, color 0.2s; }
+  #login-screen { display:flex; align-items:center; justify-content:center; height:100vh; }
+  #login-box { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:32px; width:320px; }
+  #login-box h1 { font-size:18px; margin:0 0 20px; }
+  input, select { width:100%; padding:10px; margin-bottom:12px; background:var(--input-bg); border:1px solid var(--border);
+          border-radius:6px; color:var(--text); font-size:14px; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:10px 16px; font-size:14px; font-weight:600; }
+  .btn-primary { background: var(--blue); color:#fff; width:100%; }
+  .btn-green { background: var(--green); color:#06210f; }
+  .btn-red { background: var(--red); color:#2b0507; }
+  .btn-amber { background: var(--amber); color:#2b1c02; }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+  .btn-sm { padding:6px 10px; font-size:12px; }
+  #error-msg { color: var(--red); font-size:13px; min-height:16px; margin-bottom:8px; }
+
+  #app { display:none; max-width:1100px; margin:0 auto; padding:20px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  .header-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .status-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+  .status-running { background: rgba(47,191,113,0.15); color: var(--green); }
+  .status-stopped { background: rgba(229,72,77,0.15); color: var(--red); }
+
+  #reconnect-banner { display:none; background: var(--amber); color:#2b1c02; text-align:center;
+      padding:6px; font-size:13px; font-weight:600; border-radius:6px; margin-bottom:12px; }
+  #token-banner { display:none; background: var(--red); color:#2b0507; align-items:center;
+      justify-content:space-between; gap:10px; padding:10px 14px; font-size:13px; font-weight:600;
+      border-radius:6px; margin-bottom:12px; }
+  #token-banner button { background:#2b0507; color:#fff; }
+  #demo-mode-banner { display:none; background: var(--amber); color:#2b1c02; text-align:center;
+      padding:6px; font-size:13px; font-weight:700; letter-spacing:0.03em; border-radius:6px; margin-bottom:12px; }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:900;
+      align-items:center; justify-content:center; }
+  .modal-box { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; width:320px; }
+  .modal-box h3 { margin:0 0 14px; font-size:15px; }
+  .modal-box p { color: var(--muted); font-size:12px; margin:0 0 14px; }
+  .modal-actions { display:flex; gap:8px; margin-top:6px; }
+  .modal-actions button { flex:1; }
+
+  .tabs { display:flex; gap:4px; margin-bottom:16px; border-bottom:1px solid var(--border); overflow-x:auto; }
+  .tab-btn { background:transparent; border:none; color:var(--muted); padding:10px 14px; font-size:13px;
+      font-weight:600; border-bottom:2px solid transparent; border-radius:0; white-space:nowrap; }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--blue); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .grid { display:grid; grid-template-columns: repeat(5, 1fr); gap:14px; margin-bottom:20px; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
+  .card .label { color: var(--muted); font-size:12px; margin-bottom:6px; }
+  .card .value { font-size:22px; font-weight:700; transition: color 0.3s; }
+  .value.pos { color: var(--green); } .value.neg { color: var(--red); }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  .total-profit-panel { text-align:center; }
+  .total-profit-panel .value { font-size:34px; }
+  .table-scroll { max-height:420px; overflow-y:auto; }
+  .table-scroll table { margin:0; }
+  .table-scroll thead th { position:sticky; top:0; background:var(--panel); z-index:1; }
+  .table-x-scroll { overflow-x:auto; }
+  .flash-up { color: var(--green) !important; }
+  .flash-down { color: var(--red) !important; }
+
+  .row { display:grid; grid-template-columns: 1.6fr 1fr; gap:16px; align-items:start; }
+  .panel { background: var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .panel h2 { font-size:14px; margin:0 0 12px; color: var(--muted); text-transform:uppercase; letter-spacing:0.04em; }
+  table { width:100%; border-collapse: collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); }
+  th { color: var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; cursor:pointer; user-select:none; }
+  th.sortable:hover { color: var(--text); }
+  .controls-row { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .settings-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .settings-grid label { font-size:12px; color: var(--muted); display:block; margin-bottom:4px; }
+  .log-line { font-size:12px; padding:5px 0; border-bottom:1px solid var(--border); }
+  .log-time { color: var(--muted); margin-right:6px; }
+  .log-SUCCESS { color: var(--green); } .log-ERROR { color: var(--red); } .log-INFO { color: var(--blue); }
+  #logs-panel-tab { max-height:500px; overflow-y:auto; }
+  #logs-panel { max-height:260px; overflow-y:auto; }
+  .empty { color: var(--muted); font-size:13px; padding:8px 0; }
+  .filter-row { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:flex-end; }
+  .filter-row div { flex:1; min-width:140px; }
+  .filter-row label { font-size:12px; color: var(--muted); display:block; margin-bottom:4px; }
+  .switch-row { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .switch { position:relative; width:38px; height:20px; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider { position:absolute; cursor:pointer; inset:0; background:var(--border); border-radius:20px; transition:0.2s; }
+  .slider:before { content:""; position:absolute; height:14px; width:14px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:0.2s; }
+  input:checked + .slider { background: var(--blue); }
+  input:checked + .slider:before { transform: translateX(18px); }
+
+  #toast-container { position:fixed; top:16px; right:16px; z-index:1000; display:flex; flex-direction:column; gap:8px; }
+  .toast { background: var(--panel); border:1px solid var(--border); border-left:4px solid var(--blue);
+      border-radius:8px; padding:12px 14px; font-size:13px; min-width:220px; max-width:320px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25); animation: slidein 0.2s ease-out; }
+  .toast.success { border-left-color: var(--green); }
+  .toast.error { border-left-color: var(--red); }
+  @keyframes slidein { from { transform: translateX(20px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+
+  #equity-chart-wrap { width:100%; overflow-x:auto; }
+  svg#equity-svg { width:100%; height:220px; }
+
+  @media (max-width: 760px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .row { grid-template-columns: 1fr; }
+    header h1 { font-size:16px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="modal-overlay" id="token-modal">
+  <div class="modal-box">
+    <h3>Refresh Kite session</h3>
+    <p>Enter your Kite password and current TOTP code. Neither is stored - they're used once to log in and then discarded. The backend will restart automatically after a successful refresh.</p>
+    <div id="token-modal-error" style="color:var(--red); font-size:12px; min-height:16px; margin-bottom:6px;"></div>
+    <input id="kite-password" type="password" placeholder="Kite password" autocomplete="off">
+    <input id="kite-totp" type="text" inputmode="numeric" placeholder="TOTP code" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeTokenModal()">Cancel</button>
+      <button class="btn-primary" id="token-submit-btn" onclick="submitTokenRefresh()">Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="lock-modal">
+  <div class="modal-box">
+    <h3>Unlock trading controls</h3>
+    <p>Enter your web terminal login password to reveal manual buy/sell and target-edit buttons for this session. They lock again automatically on your next page load.</p>
+    <div id="lock-modal-error" style="color:var(--red); font-size:12px; min-height:16px; margin-bottom:6px;"></div>
+    <input id="lock-password" type="password" placeholder="Login password" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeLockModal()">Cancel</button>
+      <button class="btn-primary" id="lock-submit-btn" onclick="submitUnlock()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<div id="login-screen">
+  <div id="login-box">
+    <h1>Silver Bot - Web Terminal</h1>
+    <div id="error-msg"></div>
+    <input id="username" placeholder="Username" autocomplete="username">
+    <input id="password" placeholder="Password" type="password" autocomplete="current-password">
+    <button class="btn-primary" onclick="login()">Log in</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="reconnect-banner">Reconnecting to server - data may be stale...</div>
+  <div id="demo-mode-banner">DEMO MODE - orders are simulated, no real trades are being placed</div>
+  <div id="token-banner">
+    <span>Kite session expired - bot is paused. Refresh the token to resume.</span>
+    <button class="btn-sm" onclick="openTokenModal()">Refresh token</button>
+  </div>
+
+  <header>
+    <h1>Silver Bot - Web Terminal</h1>
+    <div class="header-right">
+      <span id="status-pill" class="status-pill status-stopped">Stopped</span>
+      <label class="switch-row"><span id="lock-status-label">Controls locked</span>
+        <label class="switch"><input type="checkbox" id="controls-lock-toggle" onchange="handleLockToggle(this)"><span class="slider"></span></label>
+      </label>
+      <label class="switch-row"><span>Light</span>
+        <label class="switch"><input type="checkbox" id="theme-toggle" onchange="toggleTheme()"><span class="slider"></span></label>
+      </label>
+      <button class="btn-outline btn-sm" onclick="logout()">Log out</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')">Trades</button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+    <button class="tab-btn" data-tab="logs" onclick="switchTab('logs')">Logs</button>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div class="tab-panel active" id="tab-dashboard">
+    <div class="grid">
+      <div class="card"><div class="label">Current price</div><div class="value" id="stat-price">-</div></div>
+      <div class="card"><div class="label">Open quantity</div><div class="value" id="stat-position">-</div></div>
+      <div class="card"><div class="label">Next buy target</div><div class="value" id="stat-next-buy">-</div></div>
+      <div class="card"><div class="label">Profit today</div><div class="value" id="stat-profit-today">-</div></div>
+      <div class="card"><div class="label">Unrealized P/L</div><div class="value" id="stat-unrealized">-</div></div>
+    </div>
+
+    <div class="controls-row">
+      <button class="btn-green" onclick="startBot()">Start bot</button>
+      <button class="btn-red" onclick="stopBot()">Stop bot</button>
+      <button class="btn-amber lockable" style="display:none;" onclick="manualBuy()">Manual buy</button>
+      <button class="btn-red lockable" style="display:none;" onclick="manualSellAll()">Sell all</button>
+    </div>
+
+    <div class="panel">
+      <h2>Open positions</h2>
+      <div class="table-x-scroll">
+        <table>
+          <thead><tr><th>ID</th><th>Buy price</th><th>Buy time</th><th>Qty</th><th>Target sell</th><th>Target profit</th><th>Live P/L</th><th></th></tr></thead>
+          <tbody id="positions-body"><tr><td class="empty" colspan="8">No open positions</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADES TAB -->
+  <div class="tab-panel" id="tab-trades">
+    <div class="panel total-profit-panel">
+      <h2>Total profit (filtered)</h2>
+      <div class="value" id="stat-total-profit">-</div>
+    </div>
+
+    <div class="panel">
+      <h2>Equity curve (cumulative realized P/L)</h2>
+      <div id="equity-chart-wrap"><svg id="equity-svg" viewBox="0 0 600 220"></svg></div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2 style="margin:0;">Trade history</h2>
+        <button class="btn-outline btn-sm" onclick="toggleFilterDrawer()">
+          <span id="filter-toggle-label">Filters</span> <span id="filter-toggle-arrow">&#9662;</span>
+        </button>
+      </div>
+      <div id="filter-summary" style="display:none; font-size:12px; color:var(--muted); margin-bottom:10px;"></div>
+      <div class="filter-row" id="filter-drawer" style="display:none;">
+        <div><label>From date</label><input type="date" id="filter-from" onchange="renderTradesTable()"></div>
+        <div><label>To date</label><input type="date" id="filter-to" onchange="renderTradesTable()"></div>
+        <div><button class="btn-outline" onclick="applyDatePreset('today')">Today</button></div>
+        <div><button class="btn-outline" onclick="applyDatePreset('week')">This week</button></div>
+        <div><button class="btn-outline" onclick="applyDatePreset('month')">This month</button></div>
+        <div><button class="btn-outline" onclick="clearFilters()">Clear</button></div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th class="sortable" onclick="setSort('id')">ID</th>
+            <th class="sortable" onclick="setSort('buy_price')">Buy</th>
+            <th class="sortable" onclick="setSort('sell_price')">Sell</th>
+            <th class="sortable" onclick="setSort('quantity')">Qty</th>
+            <th class="sortable" onclick="setSort('profit_loss')">P/L</th>
+            <th class="sortable" onclick="setSort('sell_time')">Sell time</th>
+          </tr></thead>
+          <tbody id="trades-body"><tr><td class="empty" colspan="6">No trades yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Statistics (filtered)</h2>
+      <div class="grid" id="trade-stats-grid" style="margin-bottom:0;">
+        <div class="card"><div class="label">Closed trades</div><div class="value" id="stat-count">-</div></div>
+        <div class="card"><div class="label">Win rate</div><div class="value" id="stat-winrate">-</div></div>
+        <div class="card"><div class="label">Avg profit / trade</div><div class="value" id="stat-avg-profit">-</div></div>
+        <div class="card"><div class="label">Profit factor</div><div class="value" id="stat-profit-factor">-</div></div>
+        <div class="card"><div class="label">Avg win</div><div class="value" id="stat-avg-win">-</div></div>
+        <div class="card"><div class="label">Avg loss</div><div class="value" id="stat-avg-loss">-</div></div>
+        <div class="card"><div class="label">Best trade</div><div class="value" id="stat-best">-</div></div>
+        <div class="card"><div class="label">Worst trade</div><div class="value" id="stat-worst">-</div></div>
+        <div class="card"><div class="label">Avg holding time</div><div class="value" id="stat-avg-hold">-</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="panel">
+      <div class="grid grid-4" style="margin-bottom:16px;">
+        <div class="card"><div class="label">Current price</div><div class="value" id="stat-price-settings">-</div></div>
+        <div class="card"><div class="label">Next buy target</div><div class="value" id="stat-next-buy-settings">-</div></div>
+        <div class="card"><div class="label" id="drop-mode-label">Next drop % (dynamic)</div><div class="value" id="stat-dynamic-drop">-</div></div>
+        <div class="card"><div class="label">k factor in use</div><div class="value" id="stat-k-factor">-</div></div>
+      </div>
+      <div class="switch-row" style="margin-bottom:16px; gap:12px;">
+        <span class="status-pill status-stopped" id="drop-mode-badge">Dynamic</span>
+        <button class="btn-amber btn-sm lockable" id="drop-mode-btn" style="display:none;" onclick="toggleDropMode()"> static buy</button>
+      </div>
+      <h2>Trading settings</h2>
+      <div class="settings-grid">
+        <div><label>Drop % (per subsequent buy)</label><input id="set-drop" type="number" step="0.01"></div>
+        <div><label>Profit %</label><input id="set-profit" type="number" step="0.01"></div>
+        <div><label>First buy %</label><input id="set-first" type="number" step="0.01"></div>
+        <div><label>Max purchases</label><input id="set-max" type="number" step="1"></div>
+        <div><label>Quantity per buy</label><input id="set-qty" type="number" step="1"></div>
+      </div>
+      <button class="btn-primary" style="margin-top:6px; width:auto;" onclick="saveSettings()">Save settings</button>
+    </div>
+
+    <div class="panel">
+      <h2>Trading instrument</h2>
+      <p style="color:var(--muted); font-size:12px; margin:0 0 12px;">
+        Changing this restarts the backend to reconnect the price feed to the new instrument.
+        Blocked while the bot is running or while you have open positions.
+      </p>
+      <div class="settings-grid">
+        <div><label>Exchange (e.g. MCX)</label><input id="inst-exchange" type="text"></div>
+        <div><label>Symbol name (e.g. SILVER26DECFUT)</label><input id="inst-symbol" type="text"></div>
+        <div><label>Instrument token</label><input id="inst-token" type="number" step="1"></div>
+      </div>
+      <button class="btn-amber" style="margin-top:6px; width:auto;" onclick="saveInstrument()">Save & restart</button>
+      <div id="instrument-msg" style="font-size:12px; margin-top:8px;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Alerts</h2>
+      <div class="switch-row" style="margin-bottom:10px;">
+        <label class="switch"><input type="checkbox" id="sound-toggle" checked><span class="slider"></span></label>
+        <span>Play sound on buy/sell events</span>
+      </div>
+      <div class="switch-row">
+        <label class="switch"><input type="checkbox" id="notif-toggle" onchange="handleNotifToggle()"><span class="slider"></span></label>
+        <span>Browser notifications on buy/sell events</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Trading mode</h2>
+      <div class="switch-row" style="margin-bottom:10px;">
+        <span id="demo-mode-label">Live trading</span>
+        <label class="switch"><input type="checkbox" id="demo-mode-toggle" onchange="handleDemoModeToggle(this)"><span class="slider"></span></label>
+      </div>
+      <div style="font-size:12px; color:var(--muted);">
+        Demo mode simulates orders and writes to a separate database - no real trades are placed and no real money is at risk.
+        Stop the bot first; switching restarts the backend to apply cleanly.
+      </div>
+      <div id="demo-mode-msg" style="font-size:12px; margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- LOGS TAB -->
+  <div class="tab-panel" id="tab-logs">
+    <div class="panel">
+      <h2>Full activity log</h2>
+      <div id="logs-panel-tab"><div class="empty">No activity yet</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = null;
+let ws = null;
+let lastPrice = null;
+let lastNextBuy = null;
+let lastDynamicDrop = null;
+let lastKFactor = null;
+let allTrades = [];
+let sortField = 'sell_time';
+let sortDir = 'desc';
+let seenLogTimes = new Set();
+let firstSnapshot = true;
+let lastPositions = [];
+let reconnectTimer = null;
+
+function apiBase() { return window.location.origin; }
+
+// ---------- Auth ----------
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errorEl = document.getElementById('error-msg');
+  errorEl.textContent = '';
+  try {
+    const body = new URLSearchParams({ username, password });
+    const res = await fetch(apiBase() + '/api/login', { method: 'POST', body });
+    if (!res.ok) { errorEl.textContent = 'Invalid username or password'; return; }
+    const data = await res.json();
+    token = data.access_token;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    controlsUnlocked = false;
+    applyLockState();
+    firstSnapshot = true;
+    await refreshAll();
+    connectWebSocket();
+  } catch (e) {
+    errorEl.textContent = 'Could not reach server';
+  }
+}
+
+async function logout() {
+  token = null;
+  try { await fetch(apiBase() + '/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
+  if (ws) ws.close();
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+async function authFetch(path, options = {}) {
+  if (token) {
+    options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+  }
+  options.credentials = 'same-origin'; // ensures the session cookie is sent even without an in-memory token
+  const res = await fetch(apiBase() + path, options);
+  if (res.status === 401) { logout(); throw new Error('Session expired'); }
+  return res;
+}
+
+// ---------- Tabs ----------
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'trades') drawEquityCurve();
+}
+
+// ---------- Theme / locked controls ----------
+function toggleTheme() {
+  document.body.classList.toggle('light', document.getElementById('theme-toggle').checked);
+}
+
+let controlsUnlocked = false; // always starts locked on every page load - never persisted
+
+function applyLockState() {
+  document.querySelectorAll('.lockable').forEach(el => {
+    el.style.display = controlsUnlocked ? 'inline-block' : 'none';
+  });
+  document.getElementById('lock-status-label').textContent = controlsUnlocked ? 'Controls unlocked' : 'Controls locked';
+}
+
+function handleLockToggle(checkbox) {
+  if (checkbox.checked) {
+    // Don't unlock yet - require the password first. Revert the visual toggle
+    // until the modal confirms it.
+    checkbox.checked = false;
+    openLockModal();
+  } else {
+    // Re-locking never needs a password.
+    controlsUnlocked = false;
+    applyLockState();
+    renderPositions(lastPositions, lastPrice); // re-render to hide per-row buttons immediately
+  }
+}
+
+function openLockModal() {
+  document.getElementById('lock-modal-error').textContent = '';
+  document.getElementById('lock-password').value = '';
+  document.getElementById('lock-modal').style.display = 'flex';
+}
+function closeLockModal() {
+  document.getElementById('lock-modal').style.display = 'none';
+}
+async function submitUnlock() {
+  const password = document.getElementById('lock-password').value;
+  const errorEl = document.getElementById('lock-modal-error');
+  const btn = document.getElementById('lock-submit-btn');
+  errorEl.textContent = '';
+  if (!password) { errorEl.textContent = 'Enter your password'; return; }
+
+  btn.disabled = true;
+  try {
+    const res = await authFetch('/api/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      errorEl.textContent = data.detail || 'Incorrect password';
+    } else {
+      controlsUnlocked = true;
+      document.getElementById('controls-lock-toggle').checked = true;
+      applyLockState();
+      renderPositions(lastPositions, lastPrice);
+      toast('Controls unlocked for this session', 'success');
+      closeLockModal();
+    }
+  } catch (e) {
+    errorEl.textContent = 'Could not reach server';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- Toasts ----------
+function toast(message, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = message;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ---------- Sound + notifications ----------
+function playBeep() {
+  if (!document.getElementById('sound-toggle').checked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 720;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {}
+}
+function handleNotifToggle() {
+  const cb = document.getElementById('notif-toggle');
+  if (cb.checked && 'Notification' in window && Notification.permission !== 'granted') {
+    Notification.requestPermission().then(p => { if (p !== 'granted') cb.checked = false; });
+  }
+}
+
+// ---------- Trading mode (demo / live) ----------
+async function handleDemoModeToggle(cb) {
+  const goingToDemo = cb.checked;
+  const confirmMsg = goingToDemo
+    ? 'Switch to DEMO mode? Orders will be simulated. The backend will restart.'
+    : 'Switch back to LIVE mode - real orders will be placed with real money. The backend will restart. Continue?';
+  if (!confirm(confirmMsg)) {
+    cb.checked = !goingToDemo;
+    return;
+  }
+  const msgEl = document.getElementById('demo-mode-msg');
+  msgEl.textContent = 'Applying...';
+  try {
+    const res = await authFetch('/api/demo-mode', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: goingToDemo }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msgEl.textContent = data.detail || 'Failed to switch mode.';
+      cb.checked = !goingToDemo;
+      return;
+    }
+    msgEl.textContent = data.message;
+    document.getElementById('demo-mode-label').textContent = goingToDemo ? 'Demo mode' : 'Live trading';
+    toast(data.message, 'success');
+  } catch (e) {
+    msgEl.textContent = 'Network error - try again.';
+    cb.checked = !goingToDemo;
+  }
+}
+function syncDemoModeToggle(active) {
+  const cb = document.getElementById('demo-mode-toggle');
+  if (cb.checked !== active) cb.checked = active;  // set directly - does not fire onchange
+  document.getElementById('demo-mode-label').textContent = active ? 'Demo mode' : 'Live trading';
+}
+function notifyEvent(message) {
+  playBeep();
+  toast(message, 'success');
+  const cb = document.getElementById('notif-toggle');
+  if (cb.checked && 'Notification' in window && Notification.permission === 'granted') {
+    new Notification('Silver Bot', { body: message });
+  }
+}
+
+// ---------- WebSocket ----------
+function connectWebSocket() {
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  // If we don't have the token in memory (e.g. restored session after a refresh),
+  // the browser still sends the httpOnly cookie automatically on this same-origin
+  // WS handshake, so the query param is optional.
+  const qs = token ? ('?token=' + encodeURIComponent(token)) : '';
+  ws = new WebSocket(proto + '://' + window.location.host + '/ws' + qs);
+  document.getElementById('reconnect-banner').style.display = 'none';
+  ws.onmessage = (evt) => {
+    const data = JSON.parse(evt.data);
+    if (data.type === 'snapshot') applySnapshot(data);
+  };
+  ws.onclose = () => {
+    document.getElementById('reconnect-banner').style.display = 'block';
+    reconnectTimer = setTimeout(() => { if (token || sessionRestored) connectWebSocket(); }, 3000);
+  };
+}
+
+// ---------- Silent session restore on page load ----------
+async function tryRestoreSession() {
+  try {
+    const res = await fetch(apiBase() + '/api/me', { credentials: 'same-origin' });
+    if (!res.ok) return false;
+    return true; // cookie is valid - REST calls will work via the cookie automatically
+  } catch (e) {
+    return false;
+  }
+}
+
+let sessionRestored = false;
+(async function initOnLoad() {
+  sessionRestored = await tryRestoreSession();
+  if (sessionRestored) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    controlsUnlocked = false; // controls always start locked, even on a restored session
+    applyLockState();
+    firstSnapshot = true;
+    await refreshAll();
+    connectWebSocket();
+  }
+})();
+
+let currentDropMode = 'dynamic';
+
+function syncDropMode(mode) {
+  currentDropMode = mode;
+  const isStatic = mode === 'static';
+  const badge = document.getElementById('drop-mode-badge');
+  badge.textContent = isStatic ? 'Static' : 'Dynamic';
+  badge.className = 'status-pill ' + (isStatic ? 'status-running' : 'status-stopped');
+  document.getElementById('drop-mode-btn').textContent = isStatic ? 'Cancel static' : 'static buy';
+  document.getElementById('drop-mode-label').textContent = isStatic ? 'Next drop % (static)' : 'Next drop % (dynamic)';
+}
+
+async function toggleDropMode() {
+  const target = currentDropMode === 'static' ? 'dynamic' : 'static';
+  const res = await authFetch('/api/drop-mode', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode: target }),
+  });
+  if (!res.ok) toast((await res.json()).detail || 'Failed to change drop mode', 'error');
+  else { syncDropMode(target); toast(target === 'static' ? 'Static buy armed' : 'Back to dynamic', 'success'); }
+}
+
+function flashUpdate(elementId, newValue, oldValue) {
+  const el = document.getElementById(elementId);
+  if (newValue != null && oldValue != null && newValue !== oldValue) {
+    el.classList.remove('flash-up', 'flash-down');
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add(newValue > oldValue ? 'flash-up' : 'flash-down');
+  }
+  el.textContent = newValue != null ? newValue : '-';
+}
+
+function applySnapshot(data) {
+  // price with flash direction (both dashboard and settings copies)
+  const newPrice = data.current_price;
+  flashUpdate('stat-price', newPrice, lastPrice);
+  flashUpdate('stat-price-settings', newPrice, lastPrice);
+  if (newPrice != null) lastPrice = newPrice;
+
+  document.getElementById('stat-position').textContent = data.active_position_qty ?? 0;
+  if (data.next_buy_price !== undefined) {
+    const newNextBuy = data.next_buy_price;
+    flashUpdate('stat-next-buy', newNextBuy, lastNextBuy);
+    flashUpdate('stat-next-buy-settings', newNextBuy, lastNextBuy);
+    if (newNextBuy != null) lastNextBuy = newNextBuy;
+  }
+  const profitEl = document.getElementById('stat-profit-today');
+  profitEl.textContent = data.profit_today ?? 0;
+  profitEl.className = 'value ' + (data.profit_today >= 0 ? 'pos' : 'neg');
+
+  if (data.next_dynamic_drop_percentage !== undefined) {
+    const newDynamicDrop = data.next_dynamic_drop_percentage;
+    flashUpdate('stat-dynamic-drop', newDynamicDrop, lastDynamicDrop);
+    document.getElementById('stat-dynamic-drop').textContent =
+      newDynamicDrop != null ? `${newDynamicDrop.toFixed(4)}%` : '-';
+    if (newDynamicDrop != null) lastDynamicDrop = newDynamicDrop;
+  }
+  if (data.k_factor_in_use !== undefined) {
+    const newK = data.k_factor_in_use;
+    flashUpdate('stat-k-factor', newK, lastKFactor);
+    document.getElementById('stat-k-factor').textContent = newK != null ? newK.toFixed(2) : '-';
+    if (newK != null) lastKFactor = newK;
+  }
+
+  const pill = document.getElementById('status-pill');
+  pill.textContent = data.bot_status;
+  pill.className = 'status-pill ' + (data.bot_running ? 'status-running' : 'status-stopped');
+
+  lastPositions = data.positions || [];
+  renderPositions(lastPositions, newPrice);
+  renderLogsPanels(data.logs || []);
+
+  document.getElementById('token-banner').style.display = data.token_expired ? 'flex' : 'none';
+  document.getElementById('demo-mode-banner').style.display = data.demo_mode_active ? 'block' : 'none';
+  syncDemoModeToggle(!!data.demo_mode_active);
+  if (data.drop_mode) syncDropMode(data.drop_mode);
+
+  if (!firstSnapshot) checkForNewTradeEvents(data.logs || []);
+  firstSnapshot = false;
+}
+
+// ---------- Kite token refresh modal ----------
+function openTokenModal() {
+  document.getElementById('token-modal-error').textContent = '';
+  document.getElementById('kite-password').value = '';
+  document.getElementById('kite-totp').value = '';
+  document.getElementById('token-modal').style.display = 'flex';
+}
+function closeTokenModal() {
+  document.getElementById('token-modal').style.display = 'none';
+}
+async function submitTokenRefresh() {
+  const password = document.getElementById('kite-password').value;
+  const totp = document.getElementById('kite-totp').value.trim();
+  const errorEl = document.getElementById('token-modal-error');
+  const btn = document.getElementById('token-submit-btn');
+  errorEl.textContent = '';
+
+  if (!password || !totp) { errorEl.textContent = 'Enter both password and TOTP code'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Refreshing... (this can take ~30s)';
+  try {
+    const res = await authFetch('/api/kite/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, totp }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.detail || 'Refresh failed';
+    } else {
+      toast('Token refreshed - backend restarting...', 'success');
+      closeTokenModal();
+    }
+  } catch (e) {
+    errorEl.textContent = 'Could not reach server';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Refresh';
+    document.getElementById('kite-password').value = '';
+    document.getElementById('kite-totp').value = '';
+  }
+}
+
+function checkForNewTradeEvents(logs) {
+  logs.forEach(l => {
+    const key = l.time + '|' + l.message;
+    if (seenLogTimes.has(key)) return;
+    seenLogTimes.add(key);
+    const msg = l.message.toLowerCase();
+    if (l.level === 'SUCCESS' && (msg.includes('buy') || msg.includes('sold') || msg.includes('sell'))) {
+      notifyEvent(l.message);
+    }
+  });
+}
+
+// ---------- Positions with live unrealized P/L ----------
+function renderPositions(positions, currentPrice) {
+  const body = document.getElementById('positions-body');
+  if (!positions.length) { body.innerHTML = '<tr><td class="empty" colspan="8">No open positions</td></tr>'; return; }
+
+  let totalUnrealized = 0;
+  const locked = !controlsUnlocked;
+
+  body.innerHTML = positions.map(p => {
+    const uPnl = currentPrice != null ? (currentPrice - p.buy_price) * p.buy_quantity : null;
+    if (uPnl != null) totalUnrealized += uPnl;
+    const pnlClass = uPnl == null ? '' : (uPnl >= 0 ? 'pos' : 'neg');
+    const pnlText = uPnl == null ? '-' : uPnl.toFixed(2);
+    const targetProfit = p.expected_profit_loss != null ? p.expected_profit_loss : '-';
+    return `
+    <tr>
+      <td>${p.buy_id}</td><td>${p.buy_price}</td><td>${p.buy_time}</td>
+      <td>${p.buy_quantity}</td>
+      <td>
+        <span id="target-display-${p.buy_id}">${p.sellable_price}</span>
+        <button class="btn-outline btn-sm lockable" style="${locked ? 'display:none;' : ''} margin-left:6px;" onclick="editTarget(${p.buy_id}, ${p.sellable_price})">Edit</button>
+      </td>
+      <td>${targetProfit}</td>
+      <td class="${pnlClass}">${pnlText}</td>
+      <td><button class="btn-outline btn-sm lockable" style="${locked ? 'display:none;' : ''}" onclick="sellOne(${p.buy_id})">Sell</button></td>
+    </tr>`;
+  }).join('');
+
+  const unrealizedEl = document.getElementById('stat-unrealized');
+  unrealizedEl.textContent = totalUnrealized.toFixed(2);
+  unrealizedEl.className = 'value ' + (totalUnrealized >= 0 ? 'pos' : 'neg');
+}
+
+// ---------- Logs (dashboard mini panel is gone; full panel lives in Logs tab) ----------
+function renderLogsPanels(logs) {
+  const panel = document.getElementById('logs-panel-tab');
+  if (!logs.length) { panel.innerHTML = '<div class="empty">No activity yet</div>'; return; }
+  panel.innerHTML = logs.slice().reverse().map(l => {
+    const repeatBadge = l.count && l.count > 1 ? ` <span style="color:var(--muted);">(\u00d7${l.count})</span>` : '';
+    return `<div class="log-line"><span class="log-time">${l.time}</span><span class="log-${l.level}">[${l.level}]</span> ${l.message}${repeatBadge}</div>`;
+  }).join('');
+}
+
+// ---------- Initial REST load ----------
+async function refreshAll() {
+  try {
+    const [statusRes, positionsRes, tradesRes, settingsRes, instrumentRes] = await Promise.all([
+      authFetch('/api/status'), authFetch('/api/positions'),
+      authFetch('/api/trades?limit=500'), authFetch('/api/settings'), authFetch('/api/instrument'),
+    ]);
+    const status = await statusRes.json();
+    applySnapshot(Object.assign(status, { positions: await positionsRes.json(), logs: [] }));
+    allTrades = await tradesRes.json();
+    renderTradesTable();
+    drawEquityCurve();
+
+    const s = await settingsRes.json();
+    document.getElementById('set-drop').value = s.drop_percentage;
+    document.getElementById('set-profit').value = s.profit_percentage;
+    document.getElementById('set-first').value = s.first_buy_percentage;
+    document.getElementById('set-max').value = s.max_purchases;
+    document.getElementById('set-qty').value = s.quantity;
+
+    const inst = await instrumentRes.json();
+    document.getElementById('inst-exchange').value = inst.exchange || '';
+    document.getElementById('inst-symbol').value = inst.symbol_name || '';
+    document.getElementById('inst-token').value = inst.instrument_code || '';
+  } catch (e) { console.error(e); }
+}
+
+// ---------- Trades tab: filter + sort table ----------
+function setSort(field) {
+  if (sortField === field) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+  else { sortField = field; sortDir = 'desc'; }
+  renderTradesTable();
+}
+function clearFilters() {
+  document.getElementById('filter-from').value = '';
+  document.getElementById('filter-to').value = '';
+  renderTradesTable();
+}
+function toggleFilterDrawer() {
+  const drawer = document.getElementById('filter-drawer');
+  const arrow = document.getElementById('filter-toggle-arrow');
+  const open = drawer.style.display !== 'none';
+  drawer.style.display = open ? 'none' : 'flex';
+  arrow.innerHTML = open ? '&#9662;' : '&#9652;';
+}
+function updateFilterSummary() {
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  const summaryEl = document.getElementById('filter-summary');
+  const labelEl = document.getElementById('filter-toggle-label');
+  if (!from && !to) {
+    summaryEl.style.display = 'none';
+    labelEl.textContent = 'Filters';
+  } else {
+    summaryEl.style.display = 'block';
+    summaryEl.textContent = 'Showing: ' + (from || 'earliest') + ' \u2192 ' + (to || 'latest');
+    labelEl.textContent = 'Filters (active)';
+  }
+}
+function fmtDate(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function applyDatePreset(preset) {
+  const now = new Date();
+  let from;
+  if (preset === 'today') {
+    from = new Date(now);
+  } else if (preset === 'week') {
+    const day = now.getDay(); // 0 = Sunday
+    const diffToMonday = (day === 0 ? 6 : day - 1);
+    from = new Date(now);
+    from.setDate(now.getDate() - diffToMonday);
+  } else if (preset === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    return;
+  }
+  document.getElementById('filter-from').value = fmtDate(from);
+  document.getElementById('filter-to').value = fmtDate(now);
+  renderTradesTable();
+}
+function renderTradesTable() {
+  updateFilterSummary();
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  let rows = allTrades.filter(t => {
+    if (!t.sell_time) return false;
+    const d = t.sell_time.slice(0, 10);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  });
+  rows.sort((a, b) => {
+    let av = a[sortField], bv = b[sortField];
+    if (typeof av === 'string') { av = av || ''; bv = bv || ''; }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const body = document.getElementById('trades-body');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td class="empty" colspan="6">No trades match this filter</td></tr>';
+  } else {
+    body.innerHTML = rows.map(t => `
+      <tr>
+        <td>${t.id}</td><td>${t.buy_price}</td><td>${t.sell_price}</td><td>${t.quantity}</td>
+        <td class="${t.profit_loss >= 0 ? 'pos' : 'neg'}">${t.profit_loss}</td><td>${t.sell_time || ''}</td>
+      </tr>`).join('');
+  }
+  renderTradeStats(rows);
+}
+
+// ---------- Trades tab: statistics + total profit panels ----------
+function fmtMoney(n) {
+  return (n >= 0 ? '' : '') + n.toFixed(2);
+}
+function fmtDuration(ms) {
+  if (!isFinite(ms) || ms < 0) return '-';
+  const totalMin = Math.round(ms / 60000);
+  const days = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins = totalMin % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+function renderTradeStats(rows) {
+  const totalProfitEl = document.getElementById('stat-total-profit');
+  const countEl = document.getElementById('stat-count');
+  const winrateEl = document.getElementById('stat-winrate');
+  const avgProfitEl = document.getElementById('stat-avg-profit');
+  const profitFactorEl = document.getElementById('stat-profit-factor');
+  const avgWinEl = document.getElementById('stat-avg-win');
+  const avgLossEl = document.getElementById('stat-avg-loss');
+  const bestEl = document.getElementById('stat-best');
+  const worstEl = document.getElementById('stat-worst');
+  const avgHoldEl = document.getElementById('stat-avg-hold');
+
+  if (!rows.length) {
+    totalProfitEl.textContent = '0.00'; totalProfitEl.className = 'value';
+    countEl.textContent = '0';
+    winrateEl.textContent = '-'; winrateEl.className = 'value';
+    avgProfitEl.textContent = '-'; avgProfitEl.className = 'value';
+    profitFactorEl.textContent = '-';
+    avgWinEl.textContent = '-'; avgWinEl.className = 'value';
+    avgLossEl.textContent = '-'; avgLossEl.className = 'value';
+    bestEl.textContent = '-'; bestEl.className = 'value';
+    worstEl.textContent = '-'; worstEl.className = 'value';
+    avgHoldEl.textContent = '-';
+    return;
+  }
+
+  const pls = rows.map(t => Number(t.profit_loss) || 0);
+  const wins = pls.filter(p => p > 0);
+  const losses = pls.filter(p => p < 0);
+  const total = pls.reduce((a, b) => a + b, 0);
+  const winRate = (wins.length / rows.length) * 100;
+  const avgProfit = total / rows.length;
+  const avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+  const grossWin = wins.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? (grossWin / grossLoss) : (grossWin > 0 ? Infinity : 0);
+  const best = Math.max(...pls);
+  const worst = Math.min(...pls);
+
+  const durations = rows
+    .filter(t => t.buy_time && t.sell_time)
+    .map(t => new Date(t.sell_time.replace(' ', 'T')) - new Date(t.buy_time.replace(' ', 'T')))
+    .filter(ms => isFinite(ms) && ms >= 0);
+  const avgHoldMs = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : NaN;
+
+  totalProfitEl.textContent = fmtMoney(total);
+  totalProfitEl.className = 'value ' + (total >= 0 ? 'pos' : 'neg');
+
+  countEl.textContent = String(rows.length);
+
+  winrateEl.textContent = winRate.toFixed(1) + '%';
+  winrateEl.className = 'value ' + (winRate >= 50 ? 'pos' : 'neg');
+
+  avgProfitEl.textContent = fmtMoney(avgProfit);
+  avgProfitEl.className = 'value ' + (avgProfit >= 0 ? 'pos' : 'neg');
+
+  profitFactorEl.textContent = isFinite(profitFactor) ? profitFactor.toFixed(2) : '\u221e';
+
+  avgWinEl.textContent = fmtMoney(avgWin);
+  avgWinEl.className = 'value pos';
+
+  avgLossEl.textContent = fmtMoney(avgLoss);
+  avgLossEl.className = 'value neg';
+
+  bestEl.textContent = fmtMoney(best);
+  bestEl.className = 'value ' + (best >= 0 ? 'pos' : 'neg');
+
+  worstEl.textContent = fmtMoney(worst);
+  worstEl.className = 'value ' + (worst >= 0 ? 'pos' : 'neg');
+
+  avgHoldEl.textContent = fmtDuration(avgHoldMs);
+}
+
+// ---------- Equity curve (plain SVG, no external chart library) ----------
+function drawEquityCurve() {
+  const svg = document.getElementById('equity-svg');
+  const sorted = allTrades.slice()
+    .filter(t => t.sell_time)
+    .sort((a, b) => (a.sell_time > b.sell_time ? 1 : -1));
+
+  if (!sorted.length) {
+    svg.innerHTML = '<text x="300" y="110" text-anchor="middle" fill="var(--muted)" font-size="13">No closed trades yet</text>';
+    return;
+  }
+
+  let cum = 0;
+  const points = sorted.map(t => { cum += Number(t.profit_loss) || 0; return cum; });
+  const w = 600, h = 220, padding = 30;
+  const minV = Math.min(0, ...points), maxV = Math.max(0, ...points);
+  const range = (maxV - minV) || 1;
+
+  const xStep = points.length > 1 ? (w - padding * 2) / (points.length - 1) : 0;
+  const coords = points.map((v, i) => {
+    const x = padding + i * xStep;
+    const y = h - padding - ((v - minV) / range) * (h - padding * 2);
+    return [x, y];
+  });
+
+  const zeroY = h - padding - ((0 - minV) / range) * (h - padding * 2);
+  const pathD = coords.map((c, i) => (i === 0 ? 'M' : 'L') + c[0].toFixed(1) + ' ' + c[1].toFixed(1)).join(' ');
+  const finalVal = points[points.length - 1];
+  const strokeColor = finalVal >= 0 ? 'var(--green)' : 'var(--red)';
+
+  svg.innerHTML = `
+    <line x1="${padding}" y1="${zeroY}" x2="${w - padding}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4"/>
+    <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="2"/>
+    <text x="${padding}" y="16" fill="var(--muted)" font-size="11">${maxV.toFixed(0)}</text>
+    <text x="${padding}" y="${h - 8}" fill="var(--muted)" font-size="11">${minV.toFixed(0)}</text>
+    <text x="${w - padding}" y="16" text-anchor="end" fill="var(--text)" font-size="12" font-weight="600">Total: ${finalVal.toFixed(2)}</text>
+  `;
+}
+
+// ---------- Bot control + manual actions ----------
+async function startBot() { await authFetch('/api/bot/start', { method: 'POST' }); toast('Bot started', 'success'); }
+async function stopBot() { await authFetch('/api/bot/stop', { method: 'POST' }); toast('Bot stopped', 'info'); }
+
+async function manualBuy() {
+  if (!confirm('Execute manual buy at current price?')) return;
+  const res = await authFetch('/api/manual/buy', { method: 'POST' });
+  if (!res.ok) toast((await res.json()).detail || 'Manual buy failed', 'error');
+  else toast('Manual buy requested', 'success');
+}
+
+async function manualSellAll() {
+  if (!confirm('Sell ALL open positions at current price?')) return;
+  const res = await authFetch('/api/manual/sell_all', { method: 'POST' });
+  if (!res.ok) toast((await res.json()).detail || 'Sell all failed', 'error');
+  else toast('Sell-all requested', 'success');
+}
+
+async function sellOne(buyId) {
+  if (!confirm('Sell position #' + buyId + '?')) return;
+  const res = await authFetch('/api/manual/sell_one/' + buyId, { method: 'POST' });
+  if (!res.ok) toast((await res.json()).detail || 'Sell failed', 'error');
+  else toast('Sell requested for #' + buyId, 'success');
+}
+
+async function editTarget(buyId, currentTarget) {
+  const input = prompt('New target sell price for position #' + buyId + ':', currentTarget);
+  if (input === null) return;
+  const newPrice = parseFloat(input);
+  if (isNaN(newPrice) || newPrice <= 0) { toast('Enter a valid positive number', 'error'); return; }
+
+  const res = await authFetch('/api/positions/' + buyId + '/target', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sellable_price: newPrice }),
+  });
+  if (!res.ok) {
+    toast((await res.json()).detail || 'Failed to update target', 'error');
+  } else {
+    toast('Target price updated for #' + buyId, 'success');
+    const el = document.getElementById('target-display-' + buyId);
+    if (el) el.textContent = newPrice;
+  }
+}
+
+async function saveSettings() {
+  const payload = {
+    drop_percentage: parseFloat(document.getElementById('set-drop').value),
+    profit_percentage: parseFloat(document.getElementById('set-profit').value),
+    first_buy_percentage: parseFloat(document.getElementById('set-first').value),
+    max_purchases: parseInt(document.getElementById('set-max').value, 10),
+    quantity: parseInt(document.getElementById('set-qty').value, 10),
+  };
+  const res = await authFetch('/api/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  if (res.ok) toast('Settings saved', 'success');
+  else toast((await res.json()).detail || 'Failed to save settings', 'error');
+}
+
+async function saveInstrument() {
+  const msgEl = document.getElementById('instrument-msg');
+  msgEl.textContent = '';
+  const payload = {
+    exchange: document.getElementById('inst-exchange').value.trim(),
+    symbol_name: document.getElementById('inst-symbol').value.trim(),
+    instrument_code: parseInt(document.getElementById('inst-token').value, 10),
+  };
+  if (!payload.exchange || !payload.symbol_name || !payload.instrument_code) {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'Fill in exchange, symbol name, and instrument token';
+    return;
+  }
+  if (!confirm('Change the trading instrument to ' + payload.exchange + ':' + payload.symbol_name +
+      '? This stops nothing itself, but restarts the backend to reconnect the price feed.')) return;
+
+  const res = await authFetch('/api/instrument', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (res.ok) {
+    toast('Instrument updated - backend restarting...', 'success');
+    msgEl.style.color = 'var(--green)';
+    msgEl.textContent = data.message;
+  } else {
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = data.detail || 'Failed to update instrument';
+  }
+}
+
+document.getElementById('password').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+document.getElementById('lock-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitUnlock(); });
+window.addEventListener('resize', () => { if (document.getElementById('tab-trades').classList.contains('active')) drawEquityCurve(); });
+</script>
+</body>
+</html>

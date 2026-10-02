@@ -1,0 +1,17 @@
+[Unit]
+Description=Silver Bot Web Terminal (FastAPI backend)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=/trading_test_1/web_terminal/backend
+ExecStart=/conda/envs/trade/bin/python3.11 -m uvicorn app:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/silver-web-terminal.log
+StandardError=append:/var/log/silver-web-terminal.log
+
+[Install]
+WantedBy=multi-user.target
+
